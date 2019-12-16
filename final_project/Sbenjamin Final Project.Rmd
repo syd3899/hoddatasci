@@ -1,0 +1,239 @@
+---
+title: "What Predicts Draft Score and Being Drafted?"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, results ='hide',include=TRUE)
+library(tidyverse)
+library(ggthemes)
+library(haven)
+library(readxl)
+library(modelr)
+library(plotly)
+```
+
+```{r, include=FALSE}
+combine<-read_csv("combine.csv")
+```
+
+```{r, include=FALSE}
+combine%>%
+  group_by(`Drafted`)%>%
+  summarize(Draft_Grade=mean(Draft_Grade,na.rm = TRUE))
+```
+
+```{r, include= FALSE}
+combine<-combine%>%
+  mutate(Drafted=as.factor(Drafted))
+```
+
+```{r, include= FALSE}
+combine2<-combine%>%
+  group_by(Drafted)%>%
+  summarize(MeanDG=mean(Draft_Grade,na.rm=TRUE))
+```
+
+## Sydney Benjamin
+
+## The Problem
+Each year collegiate football players enter the NFL draft in hopes of being drafted in one of the seven rounds during draft weekend in April. Prior to the draft, the NFL hosts a Combine that is invite only and is meant to gather some of the best players across the country to see how they perform and measure up against one another. At the combine, various measurements and stats are gathered and reported on players and are made public for teams and fans alike to assess. Because this data is used by teams on draft nights and influences draft stock, this project is meant to assess which measurements are the best predictors of a player being drafted. 
+
+## The Data
+The data for this analysis came from the National Football League's 2018 combine report, an annual survey of collected data on all collegiate players that entered the draft and were invited to the combine that year prior to the draft.
+
+## Conditional Mean at one level independent variable
+```{r, results='hide'}
+gg<-ggplot(combine2,aes(x=Drafted,y=MeanDG,
+                      fill=as.factor(Drafted)))
+gg<-gg+geom_bar(stat="identity")
+gg<-gg+theme(legend.position = "none")
+gg
+```
+
+Running the conditional mean of players' draft grade shows us the average mean draft grade for players that were either drafted (1) or undrafted (2). If drafted, a player's draft score was around 5.63 and if undrafted a players score was around 5.21. 
+
+
+```{r, include=FALSE}
+season<-read_csv("season.csv")
+combine<-read_csv("combine.csv")
+```
+
+## Draft Performance Ratings
+
+```{r}
+gg<-ggplot(data=combine,aes(x=Draft_Grade,color=Draft_Grade))
+gg<-gg+geom_freqpoly(binwidth=.5,color="blue")
+gg<-gg+xlab("Draft Grade")+ylab("Density")
+gg
+```
+
+This density graph shows the amount of players that received each indvidual score ranging from 4.0 to 8.0. We can see that the most amount of players had a score of around 5.5 with a near even distribution.
+
+## Height Vs. Drafted
+```{r}
+library(ggplot2)
+ggplot(combine, aes(y = combine$Height, x= combine$Drafted)) +
+geom_smooth(method=lm, se=FALSE) +
+
+geom_point(size = 1) +
+ggtitle("Height vs. Drafted") +
+theme(plot.title = element_text(hjust = 0.5)) +
+xlab("Drafted") +
+ylab("Height")
+```
+
+```{r}
+cor(combine$Height, combine$Drafted)
+```
+[1] -0.1359757
+
+A player's height is negatively associated with their Draft Grade, therefore shorter players tend to receive higher draft grades and are thus more likely to be drafted.
+
+## Comparing Draft Grade to Forty Yard Dash Scores
+```{r}
+library(ggplot2)
+ggplot(combine, aes(y = combine$Draft_Grade, x= combine$Fourty_Dash)) +
+geom_smooth(method=lm, se=FALSE) +
+
+geom_point(size = 1) +
+ggtitle("Draft Grade vs. Fourty Yard Dash") +
+theme(plot.title = element_text(hjust = 0.5)) +
+
+xlab("Fourty Yard Dash") +
+ylab("Draft Grade")
+```
+
+There is not the strongest of association between a player's draft score and their forty yard dash time, but in general, players with the highest fourty yard dash scores have higher draft grades.
+
+## Top 10 Drafted in the 2018 Draft
+```{r}
+combine %>%
+  select(Name,Draft_Grade) %>%
+  drop_na(Name)%>%
+  arrange(desc(Draft_Grade)) %>%
+  head(20) %>%  
+  ggplot(aes(reorder(Name,Draft_Grade),Draft_Grade,fill=Name))+geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle=90),plot.title=element_text(color="Blue",face="italic"),
+        legend.position="none")+scale_y_continuous(labels=scales::comma)+
+  labs(x="",y="Draft Grade",title="Top 10 Drafted in 2018")
+```
+
+## Average Draft Grade by Position Group
+```{r}
+combine %>%
+  select(Position_Group,Draft_Grade) %>%
+  drop_na(Position_Group)%>%
+  arrange(desc(Draft_Grade)) %>%
+  head(10) %>%  
+  ggplot(aes(reorder(Position_Group,Draft_Grade),Draft_Grade,fill=Position_Group))+geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle=90),plot.title=element_text(color="Blue",face="italic"),
+        legend.position="none")+scale_y_continuous(labels=scales::comma)+
+  labs(x="",y="Draft Grade",title="Top Graded Position Groups")
+```
+
+This graph shows the average draft grade of players by position. Players in the Defensive Line (DL) and Linebacker (LB) groups had the highest average draft scores. Draft score is positively associated with being drafted, therefore defensive lineman and linebackers are more likely than any other position to be drafted.
+
+## Draft Grade by Player Height and Position
+```{r}
+gg<-ggplot(combine,aes(x=Height,y=(Draft_Grade+1),color=Position))
+gg<-gg+geom_point(size=.5,alpha=.2)
+my.breaks=c(0,100,500,1000,5000,10000,20000)
+ 
+gg<-gg+scale_y_continuous(trans="log",breaks=my.breaks)
+gg<-gg+geom_smooth(method="lm")
+gg<-gg+facet_wrap(~Position)
+gg<-gg+ theme(strip.text.x = element_text(size = 6)) 
+gg<-gg+guides(color=FALSE)
+gg<-gg+xlab("Player Height")+ylab("Draft Grade")
+gg
+```
+
+The figure above shows predicted a player's draft grade by height and position. It is notable that for linebackers, there is a linear relationship between their height and draft grade. 
+
+## Plotting and Comparing 40 Yard Dash Scores by Drafted (1) and Undrafted (2)
+```{r}
+combine %>%
+  filter(!is.na(Fourty_Dash), Position %in% c('QB', 'WR', 'RB', 'TE')) %>%
+  ggplot(aes(x=Drafted, y=Fourty_Dash)) +
+  geom_point(aes(color=Position), size=3) +
+  theme_minimal() +
+  scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73", "#F0E442")) +
+  geom_smooth(method='lm')
+```
+
+```{r}
+combine %>%
+  filter(Fourty_Dash <= 4.7, Position=='WR') %>%
+  select(Team, Position, Name, Fourty_Dash)
+```
+
+The plot above shows that Wide Receivers (WR) outperformed the three other comparitve positions (QB, RB, TE) in having the lowest forty yard dash times at the combine and more wide receivers ended up being drafted (1) during the subsequent 2018 Nfl draft. We can also see that at least the top 10 forty yard dash scores at the combine were held by wide recievers.
+
+## Bivariate Regression
+```{r}
+
+mod1<-lm(Draft_Grade~Fourty_Dash,data=combine)  
+
+summary(mod1)
+confint(mod1)
+
+g1<-ggplot(combine, aes(x=Fourty_Dash,y=Draft_Grade))+ 
+           geom_point(shape=1)+ 
+           geom_smooth(method=lm) 
+g1
+
+combine<-combine%>%add_predictions(mod1)%>%rename(pred1=pred) 
+ 
+## RMSE
+rmse_1<-modelr::rmse(mod1,combine);rmse_1
+
+```
+
+What this bivariate regression shows is that as a player's fourty yard dash time increases, their draft score is predicted to decrease by. The rmse of .368 gives us a sense of how wrong the model tends to be when using just this one predictor.
+
+## Multiple Regression
+```{r}
+
+mod2<-lm(Draft_Grade~as.factor(Drafted)+
+           Fourty_Dash,
+          data=combine)
+
+summary(mod2) 
+
+combine4<-combine%>%add_predictions(mod2)%>%rename(pred2=pred)
+
+rmse_2<-modelr::rmse(mod2,combine); rmse_2
+
+```
+
+```{r}
+gg<-ggplot(combine4,aes(x=Vert_Jump))
+gg<-gg+geom_density()
+gg
+
+
+gg<-ggplotly(gg)
+gg
+```
+
+```{r}
+
+combine4%>%mutate(PositionGroup=Position_Group)->combine
+
+mod2a<-lm(Draft_Grade~PositionGroup+
+           as.factor(Vert_Jump),
+          data=combine)
+
+summary(mod2a) 
+
+combine4<-combine%>%add_predictions(mod2)%>%rename(pred2=pred2)
+
+rmse_2a<-modelr::rmse(mod2a,combine); rmse_2a
+
+```
+
+This finding reflects that players in most position groups on average have verticle jumps of 25" and under.
+
+## Recommendations
+
